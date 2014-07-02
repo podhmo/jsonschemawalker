@@ -57,6 +57,21 @@ class Control(object):
         self.merged_cache = {}
         self.regexp_cache = {}
 
+    def get_wrapper(self, schema, params, dict_of_wrapper):
+        if "title" in schema:
+            wrapper = dict_of_wrapper.get(schema["title"])
+        elif "$ref" in schema:
+            path = schema["$ref"]
+            name = path.replace("#/definitions/", "")
+            wrapper = dict_of_wrapper.get(name)
+        else:
+            wrapper = None
+
+        if wrapper is None:
+            return params
+        else:
+            return wrapper(**params)
+
     def get_regexp(self, s):
         try:
             return self.regexp_cache[s]
@@ -110,8 +125,10 @@ class Control(object):
         xs = []
         for c in candidates:
             if "$ref" in c:
-                c = self.track_reference(c, root_schema)
-            names = self.detect_property_names(c)
+                exact_c = self.track_reference(c, root_schema)
+            else:
+                exact_c = c
+            names = self.detect_property_names(exact_c)
             score = sum((1 if name in value else 0) for name in names)
             if len(names) == len(value):
                 score += 1
@@ -133,9 +150,11 @@ class Control(object):
 
 class Walker(object):
     def __init__(self, schema,
+                 wrappers=None,
                  factory=dict,
                  control=Control(),
                  converter=Converter(default_mapping)):
+        self.wrappers = wrappers or {}
         self.converter = converter
         self.control = control
         self.schema = schema
@@ -174,7 +193,6 @@ class Walker(object):
         return self.walk_object(merged, value)
 
     def walk_object(self, schema, value):
-        # todo: patternProperties
         if "oneOf" in schema:
             return self.walk_one_of(schema, value)
         elif "anyOf" in schema:
@@ -182,24 +200,18 @@ class Walker(object):
         elif "allOf" in schema:
             return self.walk_all_of(schema, value)
         elif "$ref" in schema:
-            schema = self.walk_reference(schema)
+            exact_schema = self.walk_reference(schema)
+        else:
+            exact_schema = schema
         r = self.factory()
-        for k, subschema in self.control.iterate_properties(schema, value):
+        for k, subschema in self.control.iterate_properties(exact_schema, value):
             r[k] = self.walk(subschema, value.get(k))
-        return r
+        return self.control.get_wrapper(schema, r, self.wrappers)
 
     def walk_array(self, schema, value):
-        if "$ref" in schema["items"]:
-            subschema = self.walk_reference(schema["items"])
-        else:
-            subschema = schema["items"]
+        subschema = schema["items"]
         return [self.walk(subschema, v) for v in value]
 
 
-def to_python(schema, data):
-    return Walker(schema)(data)
-
-
-def dispatch_python(schema, data, candidates):
-    # oneOf[x, y] -> x or y
-    return Walker(schema, candidates)(data)
+def to_python(schema, data, wrappers=None):
+    return Walker(schema, wrappers)(data)

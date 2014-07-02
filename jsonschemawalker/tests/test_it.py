@@ -199,3 +199,35 @@ def test_object__with_ref__array():
     value = {"users": [{"name": "foo", "age": "20"}]}
     result = _callFUT(schema, value)
     assert result == {"users": [{"name": "foo", "age": 20}]}
+
+
+# wrapper
+def test_wrapper():
+    from collections import namedtuple
+    User = namedtuple("User", "name age")
+
+    schema = {"type": "object",
+              "definitions": {
+                  "User": {"properties": {"name": {"type": "string"}, "age": {"type": "integer"}}}
+              },
+              "properties": {"users": {"type": "array", "items": {"$ref": "#/definitions/User"}}}}
+
+    value = {"users": [{"name": "foo", "age": "20"}]}
+    result = _callFUT(schema, value, {"User": User})
+    assert result == {"users": [User(name="foo", age=20)]}
+
+
+def test_wrapper2():
+    from collections import namedtuple
+    Failure = namedtuple("Failure", "name, message")
+
+    schema = {"type": "object",
+              "definitions": {
+                  "Success": {"properties": {"value": {}}},
+                  "Failure": {"properties": {"name": {"type": "string"}, "message": {"type": "string"}}}
+              },
+              "oneOf": [{"$ref": "#/definitions/Success"}, {"$ref": "#/definitions/Failure"}]
+              }
+    value = {"name": "runtime-error", "message": "anything is wrong!"}
+    result = _callFUT(schema, value, {"Failure": Failure})
+    assert result == Failure(name='runtime-error', message='anything is wrong!')
