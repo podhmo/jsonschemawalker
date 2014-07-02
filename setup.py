@@ -15,6 +15,8 @@ except IOError:
 
 install_requires=[
     'jsonschema',
+    'python-dateutil',
+    'pytz'
     ]
 
 docs_extras = [
