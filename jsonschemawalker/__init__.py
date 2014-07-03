@@ -300,3 +300,6 @@ def to_python(schema, data, wrappers=None):
 
 def to_jsondict(schema, data, getter=getattr):
     return ToJSONDictWalker(schema, getter)(data)
+
+serialize = to_jsondict
+deserialize = to_python
