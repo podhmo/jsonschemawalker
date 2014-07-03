@@ -2,6 +2,7 @@
 import logging
 import re
 from dateutil import parser as du_parser
+import pytz
 logger = logging.getLogger(__name__)
 
 
@@ -21,10 +22,26 @@ def as_bool(s):
 def as_datetime(s):
     return du_parser.parse(s)
 
+
+def string_from_datetime(dt):
+    if dt.tzinfo:
+        return dt.isoformat()
+    return pytz.utc.localize(dt).isoformat()
+
+
 # type, format -> convert-function
-default_mapping = {
+default_json_to_python_mapping = {
     ("string", None): identity,
     ("string", "date-time"): as_datetime,
+    ("integer", None): int,
+    ("number", None): float,
+    ("boolean", None): as_bool,
+    ("null", None): as_none
+}
+
+default_python_to_json_mapping = {
+    ("string", None): identity,
+    ("string", "date-time"): string_from_datetime,
     ("integer", None): int,
     ("number", None): float,
     ("boolean", None): as_bool,
@@ -148,12 +165,12 @@ class Control(object):
             return new_schema
 
 
-class Walker(object):
+class ToPythonWalker(object):
     def __init__(self, schema,
                  wrappers=None,
                  factory=dict,
                  control=Control(),
-                 converter=Converter(default_mapping)):
+                 converter=Converter(default_json_to_python_mapping)):
         self.wrappers = wrappers or {}
         self.converter = converter
         self.control = control
@@ -213,5 +230,73 @@ class Walker(object):
         return [self.walk(subschema, v) for v in value]
 
 
+class ToJSONDictWalker(object):
+    def __init__(self, schema, getter,
+                 factory=dict,
+                 control=Control(),
+                 converter=Converter(default_python_to_json_mapping)):
+        self.converter = converter
+        self.control = control
+        self.getter = getter
+        self.schema = schema
+        self.factory = factory
+
+    def __call__(self, value):
+        return self.walk(self.schema, value)
+
+    def walk(self, schema, value):
+        if schema == {}:
+            return value
+        type_ = schema.get("type", "object")
+        if type_ == "object":
+            return self.walk_object(schema, value)
+        elif type_ == "array":
+            return self.walk_array(schema, value)
+        else:
+            return self.walk_atom(schema, value)
+
+    def walk_atom(self, schema, value):
+        return self.converter(schema, value)
+
+    def walk_one_of(self, schema, value):
+        matched = self.control.detect_matched(schema["oneOf"], value.__dict__, self.schema)  # xxx
+        return self.walk_object(matched, value)
+
+    def walk_any_of(self, schema, value):
+        matched = self.control.detect_matched(schema["anyOf"], value.__dict__, self.schema)  # xxx
+        return self.walk_object(matched, value)
+
+    def walk_all_of(self, schema, value):
+        merged = self.control.detect_merged(schema["allOf"], self.schema)
+        return self.walk_object(merged, value)
+
+    def walk_reference(self, schema):
+        return self.control.track_reference(schema, self.schema)
+
+    def walk_object(self, schema, value):
+        if "oneOf" in schema:
+            return self.walk_one_of(schema, value)
+        elif "anyOf" in schema:
+            return self.walk_any_of(schema, value)
+        elif "allOf" in schema:
+            return self.walk_all_of(schema, value)
+        elif "$ref" in schema:
+            exact_schema = self.walk_reference(schema)
+        else:
+            exact_schema = schema
+        r = self.factory()
+        for k, subschema in self.control.iterate_properties(exact_schema, value):
+            r[k] = self.walk(subschema, self.getter(value, k))
+        return r
+
+    def walk_array(self, schema, value):
+        subschema = schema["items"]
+        return [self.walk(subschema, v) for v in value]
+
+
 def to_python(schema, data, wrappers=None):
-    return Walker(schema, wrappers)(data)
+    return ToPythonWalker(schema, wrappers)(data)
+
+
+def to_jsondict(schema, data, getter=getattr):
+    return ToJSONDictWalker(schema, getter)(data)

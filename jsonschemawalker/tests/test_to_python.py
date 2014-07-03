@@ -166,7 +166,8 @@ def test_object_pattern_properties():
     value = {
         "test_foo": "ok",
         "test_bar": "ok",
-        "test_boo": "ok"
+        "test_boo": "ok",
+        "foo": "foo"
     }
     result = _callFUT(schema, value)
     assert result == {'test_bar': 'ok', 'test_boo': 'ok', 'test_foo': 'ok'}
