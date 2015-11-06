@@ -54,6 +54,16 @@ def test_object():
     assert result == {"name": "foo", "age": 20}
 
 
+def test_object__with_default():
+    schema = {
+        "type": "object",
+        "properties": {"name": {"type": "string", "default": "<noname>"}, "age": {"type": "integer", "default": 0}}
+    }
+    value = {}
+    result = _callFUT(schema, value)
+    assert result == {"name": "<noname>", "age": 0}
+
+
 def test_object__slackoff():
     schema = {"type": "object",
               "properties": {"name": {}, "age": {}}}

@@ -192,6 +192,8 @@ class ToPythonWalker(object):
             return self.walk_atom(schema, value)
 
     def walk_atom(self, schema, value):
+        if value is None and "default" in schema:
+            value = schema["default"]
         return self.converter(schema, value)
 
     def walk_reference(self, schema):
