@@ -41,18 +41,18 @@ class PyTest(TestCommand):
 
 
 setup(name='jsonschemawalker',
-      version='0.1',
+      version='0.1.1',
       description='-',
       long_description=README + '\n\n' +  CHANGES,
       classifiers=[
         "Programming Language :: Python",
         "Programming Language :: Python :: Implementation :: CPython",
         ],
-      keywords='',
-      author="",
-      author_email="",
-      url="",
-      packages=find_packages(),
+      keywords='jsonschema, walker',
+      author="podhmo",
+      author_email="ababjam61@gmail.com",
+      url="https://github.com/podhmo/jsonschemawalker",
+      packages=find_packages(exclude=["jsonschemawalker.tests"]),
       include_package_data=True,
       zip_safe=False,
       install_requires = install_requires,
@@ -62,6 +62,7 @@ setup(name='jsonschemawalker',
           },
       tests_require = tests_require,
       cmdclass = {'test': PyTest},
+      license="mit",
       entry_points = """      """
       )
 
