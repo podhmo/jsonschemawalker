@@ -234,6 +234,8 @@ class ToPythonWalker(object):
 
 class ToJSONDictWalker(object):
     def __init__(self, schema, getter,
+                 verbose=False,
+                 missing_value=None,
                  factory=dict,
                  control=Control(),
                  converter=Converter(default_python_to_json_mapping)):
@@ -242,6 +244,8 @@ class ToJSONDictWalker(object):
         self.getter = getter
         self.schema = schema
         self.factory = factory
+        self.verbose = verbose
+        self.missing_value = missing_value
 
     def __call__(self, value):
         return self.walk(self.schema, value)
@@ -288,7 +292,10 @@ class ToJSONDictWalker(object):
             exact_schema = schema
         r = self.factory()
         for k, subschema in self.control.iterate_properties(exact_schema, value):
-            r[k] = self.walk(subschema, self.getter(value, k))
+            raw_val = self.getter(value, k, self.missing_value)
+            if raw_val == self.missing_value and not self.verbose:
+                continue
+            r[k] = self.walk(subschema, raw_val)
         return r
 
     def walk_array(self, schema, value):
@@ -300,8 +307,8 @@ def to_python(schema, data, wrappers=None):
     return ToPythonWalker(schema, wrappers)(data)
 
 
-def to_jsondict(schema, data, getter=getattr):
-    return ToJSONDictWalker(schema, getter)(data)
+def to_jsondict(schema, data, getter=getattr, verbose=False):
+    return ToJSONDictWalker(schema, getter, verbose=verbose)(data)
 
 serialize = to_jsondict
 deserialize = to_python

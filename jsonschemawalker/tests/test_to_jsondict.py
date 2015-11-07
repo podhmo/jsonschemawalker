@@ -57,6 +57,34 @@ def test_object():
     assert result == {"name": "foo", "age": 20}
 
 
+def test_object__skip():
+    schema = {
+        "type": "object",
+        "properties": {"name": {"type": "string"}, "age": {"type": "integer"}},
+        "required": ["name"]
+    }
+
+    class person:
+        name = "foo"
+
+    result = _callFUT(schema, person, verbose=False)
+    assert result == {"name": "foo"}
+
+
+def test_object__noskip():
+    schema = {
+        "type": "object",
+        "properties": {"name": {"type": "string"}, "age": {"type": "integer"}},
+        "required": ["name"]
+    }
+
+    class person:
+        name = "foo"
+
+    result = _callFUT(schema, person, verbose=True)
+    assert result == {"name": "foo", "age": None}
+
+
 def test_object__dict():
     schema = {"type": "object",
               "properties": {"name": {"type": "string"}, "age": {"type": "integer"}}}
